@@ -31,13 +31,17 @@ class SimpleParser:
         value: str
 
 
-    def __init__(self, top_grammar, token_type=str, error_string=None):
+    def __init__(self, top_grammar, token_type=str, **kwargs):
         self._grammar = self._builder(top_grammar, token_type)
         self._error_filter = lambda v: type(v) is token_type
-        if error_string:
-            self._error_string = error_string
-        else:
-            self._error_string = lambda t,el: f'error: unexpected {t.type} type value: "{t.value}", expected type [{",".join(el)}]'
+
+        self._error_string = kwargs.pop("error_string",
+                                        lambda t,el: f'error: unexpected {t.type} type value: "{t.value}", expected type [{",".join(el)}]')
+        self._rule_constructor = kwargs.pop("rule_constructor",
+                                            lambda type_,value_,token_list_: token_list_[-1]._replace(type=type_, value=value_))
+        if kwargs:
+            raise TypeError(f'{__name__}() got an unexpected keyword argument \'{"', '".join(kwargs.keys())}\'')
+
 
     def parse(self, tokens):
         from copy import copy
@@ -89,7 +93,7 @@ class SimpleParser:
                     l.appendleft(ast_stack.pop())
 
                 value = rule[1](self._NodeList(l)) 
-                t = l[-1]._replace(type=rule[0], value=value)
+                t = self._rule_constructor(rule[0], value, l)
                 ast_stack.append(t)
                 index_stack.append(i)
 
